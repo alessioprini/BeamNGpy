@@ -4,12 +4,16 @@ This example script shows how to use the ``settings.change`` function of the
 """
 
 import time
+import sys
+import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..\src')))
 
 from beamngpy import BeamNGpy
 
 
 def main():
-    beamng = BeamNGpy("localhost", 25252, quit_on_close=False)
+    beamng = BeamNGpy("localhost", 25252, home="C:\\Users\\AlessioPrini\\Documents\\AMBUSIM\\AmbuSim.BeamNG.drive")
 
     with beamng as bng:
         print("Setting BeamNG to fullscreen...")

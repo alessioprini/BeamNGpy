@@ -218,10 +218,6 @@ Tools
    :members:
    :undoc-members:
 
-.. autoclass:: beamngpy.tools.TrafficConfig
-   :members:
-   :undoc-members:
-
 Miscellaneous
 =============
 

@@ -51,7 +51,6 @@ def main():
     input("Press Enter to teleport to the other road...")
     vehicle.teleport((-107, 20, 100), reset=False)
     input("Press Enter when done...")
-    beamng.disconnect()
 
 
 if __name__ == "__main__":

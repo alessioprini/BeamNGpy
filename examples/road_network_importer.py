@@ -1,10 +1,5 @@
-from pathlib import Path
-
 from beamngpy import BeamNGpy, Scenario, Vehicle, set_up_simple_logging
 from beamngpy.tools import OpenDriveImporter, OpenStreetMapImporter, SumoImporter
-
-SCRIPT_DIR = Path(__file__).parent.resolve()
-
 
 def main():
     set_up_simple_logging()
@@ -18,7 +13,7 @@ def main():
     scenario.add_vehicle(vehicle)
 
     # Import OpenDrive (.xodr).
-    filename = SCRIPT_DIR / "data/Ex_LHT-Complex-X-Junction.xodr"
+    filename = "data/Ex_LHT-Complex-X-Junction.xodr"
     OpenDriveImporter.import_xodr(
         filename, scenario
     )  # import an OpenDrive file (.xodr).
@@ -38,7 +33,6 @@ def main():
 
     # Execute BeamNG until the user closes it.
     input("Completed. Press Enter to exit...")
-    beamng.disconnect()
 
 
 if __name__ == "__main__":

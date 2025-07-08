@@ -194,7 +194,7 @@ class Scenario:
             difficulty=self.difficulty,
             authors=self.authors,
             lapConfig=self.checkpoints,
-            forceNoCountDown=True,
+            forceNoCountDown=True
         )
 
         vehicles_dict = dict()
@@ -523,7 +523,8 @@ class Scenario:
         self.checkpoints.extend(ids)
 
     def _convert_scene_object(self, obj: StrDict) -> SceneObject:
-        data = obj
+        assert self.bng
+        data = self.bng._message("GetObject", id=obj["id"])
         clazz = data["class"]
         if clazz in Scenario.scenetree_classes:
             converted = Scenario.scenetree_classes[clazz](data)
@@ -545,7 +546,7 @@ class Scenario:
         in the ``scene`` field of this class.
         """
         assert self.bng
-        scenetree = self.bng._message("SyncScene")
+        scenetree = self.bng._message("GetSceneTree")
         assert scenetree["class"] == "SimGroup"
         self.scene = self._convert_scene_object(scenetree)
 

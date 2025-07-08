@@ -48,7 +48,7 @@ def main():
         pos=(0, 0, 1.7),
         dir=(0, -1, 0),
         up=(0, 0, 1),
-        size=RESOLUTION,
+        resolution=RESOLUTION,
         field_of_view_y=FOV,
         near_far_planes=(RANGE_MIN, RANGE_MAX),
         range_roundness=-2.0,
@@ -69,7 +69,6 @@ def main():
     vehicle.ai.set_mode("disabled")
     bng.ui.show_hud()
     input("Press Enter to exit...")
-    bng.disconnect()
 
 
 if __name__ == "__main__":

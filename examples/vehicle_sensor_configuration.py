@@ -49,7 +49,6 @@ def main():
     vehicle.ai.set_mode("disabled")
     print("Scenario finished.")
     input("Press Enter to exit...")
-    bng.disconnect()
 
 
 if __name__ == "__main__":

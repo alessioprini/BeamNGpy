@@ -3,17 +3,18 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-BeamNGpy Documentation
-======================
+Welcome to BeamNGpy's documentation!
+====================================
 
-Welcome to the documentation of BeamNGpy.
+.. mdinclude:: ../../README.md
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Contents
+   :maxdepth: 5
+   :caption: Contents:
 
    readme.rst
    beamngpy.rst
+   bngros.rst
    changelog.rst
 
 
@@ -22,4 +23,4 @@ Indices and tables
 
 * :ref:`genindex`
 * :ref:`modindex`
-.. * :ref:`search`
+* :ref:`search`

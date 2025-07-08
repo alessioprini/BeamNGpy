@@ -17,52 +17,6 @@ if TYPE_CHECKING:
     from beamngpy.beamng import BeamNGpy
 
 
-class ExportOpenDriveMap(CommBase):
-
-    def __init__(self, bng: BeamNGpy,file_name):
-        """
-        Exports the road network data to OpenDrive (.xodr) format.
-
-        Args:
-            bng: The BeamNG instance.
-        """
-        super().__init__(bng, None)
-
-        self.logger = getLogger(f"{LOGGER_ID}.Road_Graph")
-        self.logger.setLevel(DEBUG)
-        # Get the road graph data for the current map.
-        self.send_recv_ge("ExportOpenDrive", filename=file_name)
-
-class ExportOpenStreetMap(CommBase):
-
-    def __init__(self, bng: BeamNGpy,file_name):
-        """
-        Exports the road network data to OpenStreetMap (.osm) format.
-        Args:
-            bng: The BeamNG instance.
-        """
-        super().__init__(bng, None)
-
-        self.logger = getLogger(f"{LOGGER_ID}.Road_Graph")
-        self.logger.setLevel(DEBUG)
-        # Get the road graph data for the current map.
-        self.send_recv_ge("ExportOpenStreetMap", filename=file_name)
-
-class ExportSumo(CommBase):
-
-    def __init__(self, bng: BeamNGpy,file_name):
-        """
-        Exports the road network data to Sumo (.nod.xml and .edg.xml) format.
-        Args:
-            bng: The BeamNG instance.
-        """
-        super().__init__(bng, None)
-
-        self.logger = getLogger(f"{LOGGER_ID}.Road_Graph")
-        self.logger.setLevel(DEBUG)
-        # Get the road graph data for the current map.
-        self.send_recv_ge("ExportSumo", filename=file_name)
-
 class NavigraphData(CommBase):
 
     def __init__(self, bng: BeamNGpy):
@@ -79,7 +33,6 @@ class NavigraphData(CommBase):
 
         # Get the road graph data for the current map.
         raw_data = self.send_recv_ge("GetRoadGraph")["data"]
-
         for key in raw_data:  # fix the types if no roads fround
             raw_data[key] = dict(raw_data[key])
         self.graph = raw_data["graph"]
@@ -88,6 +41,7 @@ class NavigraphData(CommBase):
         self.widths = raw_data["widths"]
         self.normals = self._to_vec3(raw_data["normals"])
         self._cached_tangents = {}
+
         self.logger.debug("Road_Graph - data retrieved.")
 
     def get_2d_coords(self):
@@ -123,7 +77,6 @@ class NavigraphData(CommBase):
                 return False
         return True
 
-
     def compute_path_segments(self) -> dict:
         """
         Populates a dictionary with all individual 'path segments' from the current BeamNG road network.
@@ -137,35 +90,34 @@ class NavigraphData(CommBase):
         graph = self.graph
         for head_key in graph.keys():
             successors = graph[head_key].keys()
-            for child_key in successors:
-                current_path = []
-                current_path.append(head_key)
-                next_key = child_key
-                while True:
-                    current_path.append(next_key)
-                    next_successors = graph[next_key].keys()
-                    # Check if we've reached a junction or dead end
-                    if len(next_successors) != 2 or all(k in current_path for k in next_successors):
-                        if self._collection_does_not_contain_segment(
-                            collection, current_path
-                        ):
-                            collection[ctr] = current_path
-                            ctr = ctr + 1
-                        break
-                    # Find next node that hasn't been visited
-                    did_find = False
-                    for next_successor_key in next_successors:
-                        if next_successor_key not in current_path:
-                            next_key = next_successor_key
-                            did_find = True
+            if len(successors) != 2:
+                for child_key in successors:
+                    current_path = []
+                    current_path.append(head_key)
+                    next_key = child_key
+                    while True:
+                        current_path.append(next_key)
+                        next_successors = graph[next_key].keys()
+                        if len(next_successors) != 2:
+                            if self._collection_does_not_contain_segment(
+                                collection, current_path
+                            ):
+                                collection[ctr] = current_path
+                                ctr = ctr + 1
                             break
-                    if not did_find:
-                        if self._collection_does_not_contain_segment(
-                            collection, current_path
-                        ):
-                            collection[ctr] = current_path
-                            ctr = ctr + 1
-                        break
+                        did_find = False
+                        for next_successor_key in next_successors:
+                            if next_successor_key not in current_path:
+                                next_key = next_successor_key
+                                did_find = True
+                                break
+                        if did_find == False:
+                            if self._collection_does_not_contain_segment(
+                                collection, current_path
+                            ):
+                                collection[ctr] = current_path
+                                ctr = ctr + 1
+                            break
         return collection
 
     @staticmethod

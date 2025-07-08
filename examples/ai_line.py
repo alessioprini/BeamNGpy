@@ -66,7 +66,6 @@ def main():
         beamng.control.step(60)
 
     beamng.control.resume()
-    beamng.disconnect()
     print("Scenario finished!")
     input("Press Enter to exit...")
 
