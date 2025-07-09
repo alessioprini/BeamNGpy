@@ -6,10 +6,27 @@ This example script shows how to use the ``settings.change`` function of the
 import time
 
 from beamngpy import BeamNGpy
+from beamngpy import Scenario, Vehicle
 
 
 def main():
-    beamng = BeamNGpy("localhost", 25252, quit_on_close=False)
+    beamng = BeamNGpy("localhost", 25252, home="C:\\Program Files (x86)\\Steam\\steamapps\\common\\BeamNG.drive")
+    beamng.open()
+
+    scenario = Scenario("italy", "camera_streaming")
+
+    ego = Vehicle("ego", model="etk800", color="White")
+    scenario.add_vehicle(
+        ego, pos=(237.90, -894.42, 246.10), rot_quat=(0.0173, -0.0019, -0.6354, 0.7720)
+    )
+
+    scenario.make(beamng)
+
+    beamng.settings.set_deterministic(60)
+
+    beamng.control.pause()
+    beamng.scenario.load(scenario)
+    beamng.scenario.start()
 
     with beamng as bng:
         print("Setting BeamNG to fullscreen...")
@@ -33,6 +50,8 @@ def main():
 
         input("Press Enter when done...")
 
+    beamng.scenario.stop()
+    beamng.close()
 
 if __name__ == "__main__":
     main()

@@ -200,6 +200,7 @@ class BeamNGpy:
             if debug == True:
                 arg_list.append("-tcom-debug")
             arg_list.extend(("-tcom-listen-ip", listen_ip))
+            # arg_list.append("-headless")  # always start in headless mode
 
             self._start_beamng(extensions, *arg_list, **opts)
             sleep(10)
@@ -403,10 +404,10 @@ class BeamNGpy:
             extensions = []
 
         lua = "extensions.load('{}');" * len(extensions)
-        lua = lua.format(*extensions)
-        call = [binary, "-nosteam", "-tcom", "-tport", str(self.port)]
-        if platform.system() != "Linux":  # console is not supported for Linux hosts yet
-            call.append("-console")
+        lua = lua.format(*extensions) + f"tech_techCore.openServer({self.port})"
+        call = [binary, "-nosteam"]
+        # if platform.system() != "Linux":  # console is not supported for Linux hosts yet
+        #     call.append("-console")
 
         for arg in args:
             call.append(arg)
@@ -459,7 +460,9 @@ class BeamNGpy:
                 )
         else:
             binary = filesystem.determine_binary(home)
-        userpath = Path(self.user) if self.user else None
+        userpath = (
+            Path(self.user) if self.user else filesystem.determine_userpath(binary)
+        )
         call = self._prepare_call(str(binary), userpath, extensions, *args, **opts)
 
         if platform.system() == "Linux":
@@ -468,6 +471,7 @@ class BeamNGpy:
                 call, stdout=subprocess.DEVNULL, stdin=subprocess.PIPE
             )
         else:
+            print(call)
             self.process = subprocess.Popen(call, stdin=subprocess.PIPE)
         self.logger.info("Started BeamNG.")
 
