@@ -444,7 +444,6 @@ class BeamNGpy:
                 call, stdout=subprocess.DEVNULL, stdin=subprocess.PIPE
             )
         else:
-            print(call)
             self.process = subprocess.Popen(call, stdin=subprocess.PIPE)
         self.logger.info("Started BeamNG.")
 
@@ -454,3 +453,15 @@ class BeamNGpy:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+
+
+    def beamng_alive(self) -> bool:
+        """
+        Checks if the BeamNG process is still alive.
+
+        Returns:
+            True if the BeamNG process is still running, False otherwise.
+        """
+        if self.process is None:
+            return False
+        return self.process.poll() is None
