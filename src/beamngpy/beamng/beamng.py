@@ -8,6 +8,8 @@ import subprocess
 from pathlib import Path
 from time import sleep
 from typing import TYPE_CHECKING, Any, List
+import datetime
+from appdirs import user_log_dir
 
 from beamngpy.api.beamng import (
     CameraApi,
@@ -133,6 +135,7 @@ class BeamNGpy:
         self._scenario: Scenario | None = None
         self._host_os: str | None = None
         self._tech_enabled: bool | None = None
+        self._beamng_log_file = None
 
         self._setup_api()
 
@@ -372,6 +375,16 @@ class BeamNGpy:
                 self.process.wait()
             except:
                 pass
+        
+        # Chiudi il file di log BeamNG se è aperto
+        if self._beamng_log_file and hasattr(self._beamng_log_file, 'close'):
+            try:
+                self._beamng_log_file.close()
+                self.logger.info("BeamNG process log file closed.")
+            except Exception as e:
+                self.logger.warning(f"Error closing BeamNG process log file: {e}")
+            self._beamng_log_file = None
+                
         self.process = None
 
     def _send(self, data: StrDict) -> Response:
@@ -465,13 +478,37 @@ class BeamNGpy:
         )
         call = self._prepare_call(str(binary), userpath, extensions, *args, **opts)
 
+        # Crea file di log per BeamNG.drive output
+        log_dir = Path(user_log_dir(appname="AmbusimApp_BeamNG_Process", appauthor="Ambusim", version="1.0"))
+        log_dir.mkdir(parents=True, exist_ok=True)
+        beamng_process_log = log_dir / f"beamng_process_{datetime.datetime.now():%Y-%m-%d_%H-%M-%S}.log"
+        
+        try:
+            log_file = open(beamng_process_log, 'w', encoding='utf-8')
+            self.logger.info(f"BeamNG.drive process output will be written to: {beamng_process_log}")
+        except Exception as e:
+            self.logger.warning(f"Could not create BeamNG process log file: {e}, using DEVNULL")
+            log_file = subprocess.DEVNULL
+
         if platform.system() == "Linux":
-            # keep the same behaviour as on Windows - do not print game logs to the Python stdout
+            # Linux: redirect to DEVNULL or log file
             self.process = subprocess.Popen(
-                call, stdout=subprocess.DEVNULL, stdin=subprocess.PIPE
+                call, stdout=log_file if log_file != subprocess.DEVNULL else subprocess.DEVNULL, 
+                stderr=log_file if log_file != subprocess.DEVNULL else subprocess.DEVNULL,
+                stdin=subprocess.PIPE
             )
         else:
-            self.process = subprocess.Popen(call, stdin=subprocess.PIPE)
+            # Windows: redirect to log file instead of console
+            self.process = subprocess.Popen(
+                call, 
+                stdout=log_file, 
+                stderr=log_file,
+                stdin=subprocess.PIPE
+            )
+        
+        # Store log file reference for cleanup
+        self._beamng_log_file = log_file if log_file != subprocess.DEVNULL else None
+        
         self.logger.info("Started BeamNG.")
 
     def __enter__(self):
