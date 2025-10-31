@@ -117,7 +117,7 @@ def set_up_simple_logging(
     """
     sh = logging.StreamHandler()
     sh.setLevel(level)
-    formatter = logging.Formatter(LOG_FORMAT)
+    formatter = logging.Formatter(LOG_FORMAT, datefmt='%Y-%m-%d %H:%M:%S')
     sh.setFormatter(formatter)
     handlers: List[logging.Handler] = [sh]
     moved_log = False
@@ -127,7 +127,7 @@ def set_up_simple_logging(
             move(log_file, f"{log_file}.1")
             moved_log = True
         fh = logging.FileHandler(log_file, "w", "utf-8")
-        formatter = logging.Formatter(LOG_FORMAT)
+        formatter = logging.Formatter(LOG_FORMAT, datefmt='%Y-%m-%d %H:%M:%S')
         fh.setFormatter(formatter)
         fh.setLevel(level)
         handlers.append(fh)
