@@ -27,7 +27,7 @@ class ReplayApi:
         self.beamng = beamng
         self._core_replay = CoreReplayWrapper(beamng)
 
-    def start_recording(self, filename: str) -> None:
+    def start_recording(self) -> None:
         """
         Start recording simulation state to a replay file.
 
@@ -41,7 +41,7 @@ class ReplayApi:
             beamng.replay.stop_recording()
             ```
         """
-        self._core_replay.start_recording(filename)
+        self._core_replay.start_recording()
 
     def stop_recording(self) -> str:
         """

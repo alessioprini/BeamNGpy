@@ -27,6 +27,10 @@ def record_replay_example():
         print("\n1. Opening BeamNG simulator...")
         beamng.open()
 
+        a = beamng.control.get_gamestate()
+        print(a)
+
+
         # Create a simple scenario
         print("2. Creating scenario...")
         # scenario = Scenario("tech_ground", "replay_test_scenario")
@@ -48,10 +52,15 @@ def record_replay_example():
         # Wait for scenario to start
         time.sleep(2)
 
+
+        a = beamng.control.get_gamestate()
+        print(a)
+
+
         # Start recording
         print("4. Starting replay recording...")
         replay_filename = "example_replay"
-        beamng.replay.start_recording(replay_filename)
+        beamng.replay.start_recording()
 
         # Run the scenario for 10 seconds while recording
         print("5. Running simulation (10 seconds)...")
@@ -283,11 +292,11 @@ if __name__ == "__main__":
     # Or run individual examples:
 
     # Record a replay
-    # saved_file = record_replay_example()
+    saved_file = record_replay_example()
     # list_replays_example()
     # Playback the recorded replay
     # playback_replay_example("202-11-17_13-33-22 gridmap_v2")
-    playback_replay_example("2025-11-17_13-33-22 gridmap_v2")
+    # playback_replay_example("2025-11-17_13-33-22 gridmap_v2")
     
 
     # List available replays
