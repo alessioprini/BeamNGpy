@@ -64,7 +64,7 @@ class CoreReplayWrapper:
         except Exception as e:
             raise RuntimeError(f"Failed to toggle recording: {str(e)}")
 
-    def start_recording(self, filename: Optional[str] = None) -> None:
+    def start_recording(self) -> None:
         """
         Start recording.
 
@@ -75,8 +75,6 @@ class CoreReplayWrapper:
             RuntimeError: If recording start fails
         """
         try:
-            if filename:
-                self.current_replay_file = filename.replace(".rpl", "")
             lua_code = 'core_replay.toggleRecording(false)'
             self.beamng.control.queue_lua_command(lua_code, response=False)
 
