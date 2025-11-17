@@ -12,7 +12,7 @@ import datetime
 from appdirs import user_log_dir
 
 from beamngpy.api.beamng import (CameraApi, ControlApi, DebugApi,
-                                 EnvironmentApi, ScenarioApi, SettingsApi,
+                                 EnvironmentApi, ReplayApi, ScenarioApi, SettingsApi,
                                  SystemApi, TrafficApi, UiApi, VehiclesApi)
 from beamngpy.beamng import filesystem
 from beamngpy.connection import Connection
@@ -77,6 +77,9 @@ class BeamNGpy:
         env: EnvironmentApi
             The API module to control the simulation's environment.
             See :class:`.EnvironmentApi` for details.
+        replay: ReplayApi
+            The API module to control replay recording and playback.
+            See :class:`.ReplayApi` for details.
         scenario: ScenarioApi
             The API module to control the scenarios.
             See :class:`.ScenarioApi` for details.
@@ -269,6 +272,8 @@ class BeamNGpy:
         self.set_tod = self.env.set_tod
         self.set_weather_preset = self.env.set_weather_preset
         self.set_gravity = self.env.set_gravity
+
+        self.replay = ReplayApi(self)
 
         self.scenario = ScenarioApi(self)
         self.get_levels = self.scenario.get_levels
