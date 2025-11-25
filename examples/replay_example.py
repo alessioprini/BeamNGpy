@@ -177,7 +177,7 @@ def playback_replay_example(replay_file):
         # Wait for playback to reach halfway
         print("   Waiting 5 seconds...")
         init = time.time()
-        while time.time() - init < 10.0:
+        while time.time() - init < 2.0:
             print("   Replay status:")
             ii = beamng.replay.get_info()
             print(ii["state"])
@@ -209,13 +209,20 @@ def playback_replay_example(replay_file):
         # beamng.replay.set_speed(2.0)
         # time.sleep(10)
 
+        beamng.replay.pause()
+
         # # Stop the replay
-        # print("11. Stopping replay...")
+        print("11. Stopping replay...")
         beamng.replay.stop()
+        time.sleep(2)
+
+
 
         # # Stop the scenario
-        # print("12. Stopping scenario...")
-        # # beamng.scenario.stop()
+        print("12. Stopping scenario...")
+        beamng.queue_lua_command("returnToMainMenu()")
+
+        time.sleep(1)
 
     finally:
         # Close the simulator
@@ -292,11 +299,11 @@ if __name__ == "__main__":
     # Or run individual examples:
 
     # Record a replay
-    saved_file = record_replay_example()
+    # saved_file = record_replay_example()
     # list_replays_example()
     # Playback the recorded replay
     # playback_replay_example("202-11-17_13-33-22 gridmap_v2")
-    # playback_replay_example("2025-11-17_13-33-22 gridmap_v2")
+    playback_replay_example("2025-11-17_13-33-22 gridmap_v2")
     
 
     # List available replays
