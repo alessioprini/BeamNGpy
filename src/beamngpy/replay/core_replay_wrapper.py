@@ -237,8 +237,12 @@ end
             if total_seconds <= 0:
                 raise RuntimeError("Cannot seek: unknown total duration")
 
+
+            print(f"Seeking to {seconds} seconds out of {total_seconds} total seconds")
             normalized_time = min(1.0, max(0.0, seconds / total_seconds))
+            normalized_time += 0.001  # small offset to avoid edge cases 
             self.seek(normalized_time)
+            print(f"Seeked to normalized time {normalized_time}")
 
         except Exception as e:
             raise RuntimeError(f"Failed to seek to {seconds} seconds: {str(e)}")
