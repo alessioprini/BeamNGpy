@@ -217,9 +217,39 @@ end
         try:
             lua_code = f'core_replay.seek({normalized_time})'
             self.beamng.control.queue_lua_command(lua_code, response=False)
+            self.set_realtime_speed()
 
         except Exception as e:
             raise RuntimeError(f"Failed to seek replay: {str(e)}")
+
+    def set_realtime_speed(self) -> None:
+        """
+        Set playback speed to real-time.
+
+        Raises:
+            RuntimeError: If speed setting fails
+        """
+        try:
+            self.toggle_speed("^")
+        except Exception as e:
+            raise RuntimeError(f"Failed to set real-time speed: {str(e)}")
+            
+    def toggle_speed(self, speed_preset: str) -> None:
+        """
+        Toggle to speed preset.
+
+        Args:
+            speed_preset: Speed preset ("realtime", "slowmotion", "-1", "^", "v", etc)
+
+        Raises:
+            RuntimeError: If toggle fails
+        """
+        try:
+            lua_code = f'core_replay.toggleSpeed("{speed_preset}")'
+            self.beamng.control.queue_lua_command(lua_code, response=False)
+
+        except Exception as e:
+            raise RuntimeError(f"Failed to toggle speed preset: {str(e)}")
 
     def seek_seconds(self, seconds: float) -> None:
         """
