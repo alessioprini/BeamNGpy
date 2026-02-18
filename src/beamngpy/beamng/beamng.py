@@ -16,6 +16,7 @@ from beamngpy.api.beamng import (
     ControlApi,
     DebugApi,
     EnvironmentApi,
+    FreeroamApi,
     PlatoonApi,
     ReplayApi,
     ScenarioApi,
@@ -297,6 +298,8 @@ class BeamNGpy:
 
         self.replay = ReplayApi(self)
 
+        self.freeroam = FreeroamApi(self)
+
         self.scenario = ScenarioApi(self)
         self.get_levels = self.scenario.get_levels
         self.get_scenarios = self.scenario.get_scenarios
@@ -423,10 +426,8 @@ class BeamNGpy:
             extensions = []
 
         lua = "extensions.load('{}');" * len(extensions)
-        lua = lua.format(*extensions) + f"tech_techCore.openServer({self.port})"
-        call = [binary, "-nosteam"]
-        # if platform.system() != "Linux":  # console is not supported for Linux hosts yet
-        #     call.append("-console")
+        lua = lua.format(*extensions)
+        call = [binary, "-nosteam", "-tcom", "-tport", str(self.port)]
 
         for arg in args:
             call.append(arg)
@@ -479,9 +480,7 @@ class BeamNGpy:
                 )
         else:
             binary = filesystem.determine_binary(home)
-        userpath = (
-            Path(self.user) if self.user else filesystem.determine_userpath(binary)
-        )
+        userpath = Path(self.user) if self.user else None
         call = self._prepare_call(str(binary), userpath, extensions, *args, **opts)
 
         # Crea file di log per BeamNG.drive output

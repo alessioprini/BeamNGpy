@@ -109,7 +109,7 @@ class Connection:
                 msg = f"Error connecting to BeamNG.tech vehicle {vehicle.vid}. {tries} tries left."
                 self.logger.error(msg)
                 self.logger.exception(err)
-                sleep(5)
+                sleep(0.5)
                 tries -= 1
 
         # Send a first message across the socket to ensure we have matching protocol values.
