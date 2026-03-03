@@ -14,6 +14,8 @@ Welcome to the documentation of BeamNGpy.
 
    readme.rst
    beamngpy.rst
+   examples.rst
+   compatibility.rst
    changelog.rst
 
 
@@ -22,4 +24,3 @@ Indices and tables
 
 * :ref:`genindex`
 * :ref:`modindex`
-.. * :ref:`search`

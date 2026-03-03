@@ -1,9 +1,10 @@
 # Compatibility
 
-Below is the complete list of compatible BeamNG.tech and BeamNGpy versions. See also the [Compatibility](README.md#compatibility) section in the main README file.
+Below is the complete list of compatible BeamNG.tech and BeamNGpy versions. See also the [Compatibility](https://documentation.beamng.com/api/beamngpy/master/readme.html#compatibility) section in the main documentation.
 
 | BeamNG.tech version | BeamNGpy version                                          |
 | ------------------- | --------------------------------------------------------- |
+| 0.38                | [1.35](https://github.com/BeamNG/BeamNGpy/tree/v1.35)     |
 | 0.37                | [1.34.1](https://github.com/BeamNG/BeamNGpy/tree/v1.34.1) |
 | 0.36                | [1.33.1](https://github.com/BeamNG/BeamNGpy/tree/v1.33.1) |
 | 0.35                | [1.32](https://github.com/BeamNG/BeamNGpy/tree/v1.32)     |

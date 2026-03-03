@@ -37,6 +37,16 @@ API
    :show-inheritance:
    :exclude-members: RootApi
 
+ADAS
+----
+.. autoclass:: beamngpy.vehicle.lka.LaneKeepingAssist
+   :members:
+   :undoc-members:
+
+.. autoclass:: beamngpy.vehicle.adas_ultrasonic.AdasUltrasonicApi
+   :members:
+   :undoc-members:
+
 Scenario
 ========
 
@@ -219,6 +229,58 @@ Tools
    :undoc-members:
 
 .. autoclass:: beamngpy.tools.TrafficConfig
+   :members:
+   :undoc-members:
+
+Template Car Generator
+----------------------
+
+.. autoclass:: beamngpy.tools.TemplateCarGenerator
+   :members:
+   :undoc-members:
+
+.. autopydantic_model:: beamngpy.tools.template_car.Settings
+   :members:
+   :undoc-members:
+
+.. autopydantic_model:: beamngpy.tools.template_car.TemplateVehicle
+   :members:
+   :undoc-members:
+   :exclude-members: to_inputs
+
+.. autopydantic_model:: beamngpy.tools.template_car.VehicleParameters
+   :members:
+   :undoc-members:
+
+.. autopydantic_model:: beamngpy.tools.template_car.VehicleStructure
+   :members:
+   :undoc-members:
+
+.. autopydantic_model:: beamngpy.tools.template_car.Optimization
+   :members:
+   :undoc-members:
+
+.. autopydantic_model:: beamngpy.tools.template_car.OptimizationVariables
+   :members:
+   :undoc-members:
+
+.. autopydantic_model:: beamngpy.tools.template_car.TargetValues
+   :members:
+   :undoc-members:
+
+.. autopydantic_model:: beamngpy.tools.template_car.OptimizationEnabled
+   :members:
+   :undoc-members:
+
+.. autoclass:: beamngpy.tools.template_car.BodyShape
+   :members:
+   :undoc-members:
+
+.. autoclass:: beamngpy.tools.template_car.SuspensionFront
+   :members:
+   :undoc-members:
+
+.. autoclass:: beamngpy.tools.template_car.SuspensionRear
    :members:
    :undoc-members:
 

@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 import logging
-import os
 import platform
-import signal
 import subprocess
 from pathlib import Path
-from time import sleep
 from typing import TYPE_CHECKING, Any, List
 import datetime
 from appdirs import user_log_dir
@@ -28,8 +25,9 @@ from beamngpy.api.beamng import (
 )
 from beamngpy.beamng import filesystem
 from beamngpy.connection import Connection
-from beamngpy.logging import LOGGER_ID, BNGError
+from beamngpy.logging import LOGGER_ID, BNGError, create_warning, BNGDisconnectedError
 from beamngpy.types import StrDict
+from .process import kill_process_tree
 
 if TYPE_CHECKING:
     from beamngpy.connection import Response
@@ -74,6 +72,12 @@ class BeamNGpy:
 
                This option is applicable only when the process is launched by this instance
                of BeamNGpy, as it sets a launch argument of the process. Defaults to False.
+        headless: Instrument BeamNG to launch in
+                  `headless mode <https://documentation.beamng.com/beamng_tech/headless_mode/>`__.
+        nogpu: Instrument BeamNG to launch in 'no-GPU mode'. Implies ``headless=True``.
+               Sensors which require rendering pipeline will not be available.
+        gfx: Instrument BeamNG to force to use a rendering API on launch. Possible choices are
+             ``dx11`` for DirectX 11 and ``vk`` for Vulkan. Incompatible with the ``nogpu`` option.
 
     Attributes
     ----------
@@ -124,6 +128,9 @@ class BeamNGpy:
         user: str | None = None,
         quit_on_close: bool = True,
         debug: bool | None = None,
+        headless: bool = False,
+        nogpu: bool = False,
+        gfx: str | None = None,
     ):
         self.logger = logging.getLogger(f"{LOGGER_ID}.BeamNGpy")
         self.logger.setLevel(logging.DEBUG)
@@ -135,6 +142,17 @@ class BeamNGpy:
         self.user_with_version: str | None = None
         self.process = None
         self.quit_on_close = quit_on_close
+        self.headless = headless
+        self.nogpu = nogpu
+        self.gfx = None
+        if gfx == 'dx11' or gfx == 'vk':
+            self.gfx = gfx
+        elif gfx is not None:
+            create_warning('The `gfx` arguments supports only values of `dx11` and `vk`, discarding.')
+        if self.nogpu:
+            self.headless = True
+            self.gfx = None
+        self.last_command_line = None
         self._debug = debug
         self.connection: Connection | None = None
         self._scenario: Scenario | None = None
@@ -166,13 +184,15 @@ class BeamNGpy:
         **opts: str,
     ) -> BeamNGpy:
         """
-        Starts a BeamNG.* process, opens a server socket, and waits for the spawned BeamNG.* process to connect.
-        This method blocks until the process started and is ready.
+        Open a connection to a BeamNG.tech instance.
+
+        This method blocks until the connection is established. First, it tries to connect to an existing instance
+        on the given host/port. If no instance is found, it will start a new one if the ``launch`` argument is True.
 
         Args:
             extensions: A list of non-default BeamNG Lua extensions to be loaded on start.
-            launch: Whether to launch a new process or connect to a running one on the configured host/port.
-                    Defaults to True.
+            args: Additional arguments to pass when launching a new process.
+            launch: Whether to launch a new process. Defaults to True.
             debug: If True, then sets BeamNG.tech communication to debug mode. That means:
 
                     1. BeamNG will not respond to BeamNGpy requests when a Lua error
@@ -185,6 +205,7 @@ class BeamNGpy:
                 of BeamNGpy, as it sets a launch argument of the process. Defaults to False.
             listen_ip: The IP address that the BeamNG process will be listening on. Only relevant when ``launch`` is True.
                      Set to ``*`` if you want BeamNG to listen on ALL network interfaces.
+            opts: Additional key-value options to pass when launching a new process.
         """
         self.connection = Connection(self.host, self.port)
 
@@ -202,47 +223,65 @@ class BeamNGpy:
         elif launch:
             self.logger.info("Opening BeamNGpy instance.")
             arg_list = list(args)
-
             if debug is None:
                 debug = self._debug
             if debug == True:
                 arg_list.append("-tcom-debug")
             arg_list.extend(("-tcom-listen-ip", listen_ip))
-            # arg_list.append("-headless")  # always start in headless mode
-
             self._start_beamng(extensions, *arg_list, **opts)
-            sleep(10)
-            self.connection.connect_to_beamng()
+            self.connection._process = self.process
+            # Don't log connection errors while BeamNG is starting up.
+            connected = self.connection.connect_to_beamng(tries=15, log_tries=False)
+            if not connected:
+                # Try to connect further but with logging failed attempts.
+                connected = self.connection.connect_to_beamng(tries=45, log_tries=True)
+        if not connected:
+            raise BNGDisconnectedError("Error connecting to BeamNG.tech.")
         self._load_system_info()
         return self
+
+    def get_launch_arguments(self) -> str:
+        """
+        Returns the full command-line that were or would be used to launch a BeamNG instance
+        using this BeamNGpy object, including all command-line switches.
+        """
+        if self.last_command_line: # instance was already launched
+            return self.last_command_line
+        binaries = filesystem.BINARIES_LINUX if platform.system() == "Linux" else filesystem.BINARIES
+        return " ".join(self._prepare_call(binaries[0], None))
+
+    def _close_scenario(self) -> None:
+        if self._scenario:
+            if self._scenario.bng:
+                self._scenario.close()
+            else:
+                for vehicle in self._scenario.vehicles.values():
+                    vehicle.disconnect()
+            self._scenario = None
+
+    def _disconnect(self) -> None:
+        if self.connection:
+            self.connection.disconnect()
+            self.connection = None
 
     def disconnect(self) -> None:
         """
         Disconnects from the BeamNG simulator.
         """
-        if self._scenario:
-            for vehicle in self._scenario.vehicles.values():
-                try:
-                    if vehicle.is_connected():
-                        vehicle.disconnect()
-                except Exception as e:
-                    module_logger.debug(f"Cannot disconnect vehicle: {e}")
-        if self.connection:
-            self.connection.disconnect()
-            self.connection = None
+        self._close_scenario()
+        self._disconnect()
 
     def close(self) -> None:
         """
         Disconnects from the simulator and kills the BeamNG.* process.
         """
         self.logger.info("Closing BeamNGpy instance.")
-        if not self.quit_on_close:
-            self.disconnect()
-            return
-        if self._scenario:
-            self._scenario.close()
-            self._scenario = None
-        self._kill_beamng()
+        self._close_scenario()
+        if self.quit_on_close and self.connection:
+            self._try_quit_beamng()
+        self._disconnect()
+        if self.quit_on_close and self.process:
+            self._kill_beamng()
 
     def _load_system_info(self) -> None:
         info = self.system.get_info()
@@ -347,6 +386,18 @@ class BeamNGpy:
 
         self.platoon = PlatoonApi(self)
 
+    def _try_quit_beamng(self) -> None:
+        """Attempts to send the quit request to the simulator, ignoring communication errors."""
+        try:
+            if self.process:
+                if self.process.poll() is None:
+                    # Only try to quit gracefully if the process is still running
+                    self.control.quit_beamng()
+            else:
+                self.control.quit_beamng()
+        except (ConnectionResetError, ConnectionAbortedError, ConnectionRefusedError, BNGDisconnectedError):
+            pass
+
     def _kill_beamng(self) -> None:
         """
         Kills the running BeamNG.* process.
@@ -363,28 +414,8 @@ class BeamNGpy:
                 ConnectionRefusedError,
             ):
                 self.connection = None
-        if not self.process:
-            self.logger.info(
-                "cannot kill BeamNG.tech process not spawned by this instance of BeamNGpy, aborting subroutine"
-            )
-            return
-        if self.process.stdin:
-            self.process.stdin.close()
-        if os.name == "nt":
-            with open(os.devnull, "w") as devnull:
-                subprocess.call(
-                    ["taskkill", "/F", "/T", "/PID", str(self.process.pid)],
-                    stdout=devnull,
-                    stderr=devnull,
-                )
-                self.process.wait()
-        else:
-            try:
-                os.kill(self.process.pid, signal.SIGTERM)
-                self.process.wait()
-            except:
-                pass
-        
+        kill_process_tree(self.process)
+
         # Chiudi il file di log BeamNG se è aperto
         if self._beamng_log_file and hasattr(self._beamng_log_file, 'close'):
             try:
@@ -393,7 +424,6 @@ class BeamNGpy:
             except Exception as e:
                 self.logger.warning(f"Error closing BeamNG process log file: {e}")
             self._beamng_log_file = None
-                
         self.process = None
 
     def _send(self, data: StrDict) -> Response:
@@ -409,7 +439,6 @@ class BeamNGpy:
     def _prepare_call(
         self,
         binary: str,
-        user: Path | None,
         extensions: List[str] | None,
         *args: str,
         **usr_opts: str,
@@ -422,6 +451,8 @@ class BeamNGpy:
             List of shell components ready to be called in the
             :mod:`subprocess` module.
         """
+        user = Path(self.user) if self.user else None
+
         if extensions is None:
             extensions = []
 
@@ -431,6 +462,12 @@ class BeamNGpy:
 
         for arg in args:
             call.append(arg)
+        if self.headless:
+            call.append("-headless")
+        if self.nogpu:
+            call.extend(("-gfx", "null"))
+        elif self.gfx:
+            call.extend(("-gfx", self.gfx))
 
         call_opts = {}
         if lua:
@@ -472,6 +509,7 @@ class BeamNGpy:
         termination.
         """
         home = filesystem.determine_home(self.home)
+        binary = None
         if self.binary:
             binary = home / self.binary
             if not binary.is_file():
@@ -480,14 +518,14 @@ class BeamNGpy:
                 )
         else:
             binary = filesystem.determine_binary(home)
-        userpath = Path(self.user) if self.user else None
-        call = self._prepare_call(str(binary), userpath, extensions, *args, **opts)
+        call = self._prepare_call(str(binary), extensions, *args, **opts)
+        self.last_command_line = " ".join(call)
 
         # Crea file di log per BeamNG.drive output
         log_dir = Path(user_log_dir(appname="AmbusimApp_BeamNG_Process", appauthor="Ambusim", version="1.0"))
         log_dir.mkdir(parents=True, exist_ok=True)
         beamng_process_log = log_dir / f"beamng_process_{datetime.datetime.now():%Y-%m-%d_%H-%M-%S}.log"
-        
+
         try:
             log_file = open(beamng_process_log, 'w', encoding='utf-8')
             self.logger.info(f"BeamNG.drive process output will be written to: {beamng_process_log}")
@@ -496,24 +534,21 @@ class BeamNGpy:
             log_file = subprocess.DEVNULL
 
         if platform.system() == "Linux":
-            # Linux: redirect to DEVNULL or log file
             self.process = subprocess.Popen(
-                call, stdout=log_file if log_file != subprocess.DEVNULL else subprocess.DEVNULL, 
+                call, stdout=log_file if log_file != subprocess.DEVNULL else subprocess.DEVNULL,
                 stderr=log_file if log_file != subprocess.DEVNULL else subprocess.DEVNULL,
                 stdin=subprocess.PIPE
             )
         else:
-            # Windows: redirect to log file instead of console
             self.process = subprocess.Popen(
-                call, 
-                stdout=log_file, 
+                call,
+                stdout=log_file,
                 stderr=log_file,
                 stdin=subprocess.PIPE
             )
-        
+
         # Store log file reference for cleanup
         self._beamng_log_file = log_file if log_file != subprocess.DEVNULL else None
-        
         self.logger.info("Started BeamNG.")
 
     def __enter__(self):

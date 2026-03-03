@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import List
+
 from beamngpy.logging import BNGValueError
 from beamngpy.misc.colors import coerce_color
 from beamngpy.types import Color, Float3, StrDict
@@ -59,6 +61,19 @@ class RootApi(VehicleApi):
 
         data = dict(type="Control", **options)
         self._send(data).ack("Controlled")
+
+    def cycle_esc_mode(self) -> None:
+        data = dict(type="CycleESCMode")
+        self._send(data).ack("ESCModeCycled")
+
+    def set_esc_mode(self, mode: str) -> None:
+        data = dict(type="SetESCMode")
+        data["mode"] = mode
+        self._send(data).ack("ESCModeSet")
+
+    def get_esc_mode(self) -> str:
+        data = dict(type="GetESCMode")
+        return self._send(data).recv("ESCMode")["data"]
 
     def set_color(self, rgba: Color = (1.0, 1.0, 1.0, 1.0)) -> None:
         data: StrDict = dict(type="SetColor")
@@ -157,3 +172,25 @@ class RootApi(VehicleApi):
         data: StrDict = dict(type="DeflateTire")
         data["wheelId"] = wheel_id
         self._send(data).ack("CompletedDeflateTire")
+
+    def get_mass_properties(self, without_wheels: bool = False) -> StrDict:
+        data = dict(type="GetMassProperties", withoutWheels=without_wheels)
+        response = self._send(data).recv("GetMassProperties")
+        data = response["data"]
+        data["center_of_gravity"] = tuple(data["center_of_gravity"])
+        return data
+
+    def get_ref_nodes(self) -> StrDict:
+        data = dict(type="GetRefNodes")
+        response = self._send(data).recv("GetRefNodes")
+        return response["data"]
+
+    def get_node_info(self, nodes: List[str | int] | None = None) -> List[StrDict]:
+        data = dict(type="GetNodeInfo", nodes=nodes)
+        response = self._send(data).recv("GetNodeInfo")
+        data = response["data"]
+        for item in data:
+            item["pos"] = tuple(item["pos"])
+            item["cid"] = int(item["cid"])
+            item["name"] = item.get("name", None)
+        return data

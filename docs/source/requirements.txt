@@ -1,5 +1,7 @@
 # Defining the exact version will make sure things don't break
-Sphinx==5.3.0
-sphinx_rtd_theme==1.0.0
-m2r2==0.3.2
-sphinx-multiversion==0.2.4
+Sphinx>=5.3.0
+sphinx_rtd_theme>=1.0.0
+m2r2>=0.3.2
+sphinx-multiversion>=0.2.4
+fastapi[standard]>=0.116.1
+autodoc_pydantic>=2.2.0

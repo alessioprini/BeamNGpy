@@ -4,10 +4,11 @@ import logging
 import socket
 from time import sleep
 from typing import TYPE_CHECKING, Any, Dict, Tuple, cast
+import subprocess
 
 import msgpack
 
-from beamngpy.logging import LOGGER_ID, BNGError, BNGValueError
+from beamngpy.logging import LOGGER_ID, BNGError, BNGValueError, BNGDisconnectedError
 from beamngpy.types import StrDict
 
 from .prefixed_length_socket import PrefixedLengthSocket
@@ -28,7 +29,7 @@ class Connection:
         port: The port to connect to.
     """
 
-    PROTOCOL_VERSION = "v1.24"
+    PROTOCOL_VERSION = "v1.26"
 
     @staticmethod
     def _textify_string(data: bytes) -> str | bytes:
@@ -88,8 +89,9 @@ class Connection:
         self.comm_logger = logging.getLogger(f"{LOGGER_ID}.communication")
         self.req_id = 0
         self.received_messages: Dict[int, StrDict | BNGError | BNGValueError] = {}
+        self._process: subprocess.Popen | None = None
 
-    def connect_to_vehicle(self, vehicle: Vehicle, tries: int = 25) -> None:
+    def connect_to_vehicle(self, vehicle: Vehicle, tries: int = 5) -> bool:
         """
         Sets the socket of this Connection instance, and attempts to connect it to the given vehicle.
         Upon failure, connections are re-attempted a limited amount of times.
@@ -97,26 +99,38 @@ class Connection:
         Args:
             vehicle: The vehicle instance to be connected.
             tries: The number of connection attempts.
+
+        Returns:
+            True if the connection was successful, False otherwise.
         """
         if not self.port:
             raise BNGError("The simulator port is not set!")
+        connected = False
         while tries > 0:
+            if self._process and self._process.poll() is not None:
+                self.logger.error(f"BeamNG.tech is not running any more. Stopping connection to vehicle {vehicle.vid}.")
+                return False
             try:
                 self.logger.info(f"Attempting to connect to vehicle {vehicle.vid}")
                 self.skt = PrefixedLengthSocket(self.host, self.port)
+                self.skt._process = self._process
+                connected = True
                 break
             except (ConnectionRefusedError, ConnectionAbortedError, OSError) as err:
                 msg = f"Error connecting to BeamNG.tech vehicle {vehicle.vid}. {tries} tries left."
                 self.logger.error(msg)
-                self.logger.exception(err)
-                sleep(0.5)
+                self.logger.debug(f"{type(err).__name__}: {err}")
                 tries -= 1
+                if tries > 0:
+                    sleep(2)
 
         # Send a first message across the socket to ensure we have matching protocol values.
-        self.hello()
-        self.logger.info(f"Successfully connected to vehicle {vehicle.vid}.")
+        if connected:
+            self.hello()
+            self.logger.info(f"Successfully connected to vehicle {vehicle.vid}.")
+        return connected
 
-    def connect_to_beamng(self, tries: int = 25, log_tries: bool = True) -> bool:
+    def connect_to_beamng(self, tries: int = 60, log_tries: bool = True) -> bool:
         """
         Sets the socket of this connection instance and attempts to connect to the simulator over the host and port configuration set in this class.
         Upon failure, connections are re-attempted a limited amount of times.
@@ -138,19 +152,23 @@ class Connection:
             )
         connected = False
         while tries > 0:
+            if self._process and self._process.poll() is not None:
+                if log_tries:
+                    self.logger.error("BeamNG.tech is not running any more. Stopping connection attempts.")
+                return False
             try:
                 self.skt = PrefixedLengthSocket(self.host, self.port)
+                self.skt._process = self._process
                 connected = True
                 break
-            except (ConnectionRefusedError, ConnectionAbortedError) as err:
+            except (ConnectionRefusedError, ConnectionAbortedError, OSError) as err:
                 if log_tries:
-                    self.logger.error(
-                        f"Error connecting to BeamNG.tech. {tries} tries left."
-                    )
-                    self.logger.exception(err)
+                    msg = f"Error connecting to BeamNG.tech. {tries} tries left."
+                    self.logger.error(msg)
+                    self.logger.debug(f"{type(err).__name__}: {err}")
                 tries -= 1
                 if tries > 0:
-                    sleep(5)
+                    sleep(2)
 
         if connected:
             self.hello()
@@ -196,7 +214,7 @@ class Connection:
             data: The data to encode and send
         """
         if not self.skt:
-            raise BNGError("Cannot send, not connected to the simulator.")
+            raise BNGDisconnectedError("Cannot send, not connected to the simulator.")
         req_id, packed_data = self._pack_data(data)
         try:
             # First, attempt to send over the current socket stored in this Connection instance.
@@ -206,11 +224,11 @@ class Connection:
             self.skt.send(packed_data)
         return Response(self, req_id)
 
-    def recv(self, req_id: int) -> StrDict | BNGError | BNGValueError:
+    def recv(self, req_id: int) -> StrDict:
         if req_id in self.received_messages:
             return self.received_messages.pop(req_id)
         if not self.skt:
-            raise BNGError("Cannot receive, not connected to the simulator.")
+            raise BNGDisconnectedError("Cannot receive, not connected to the simulator.")
         while True:
             message = self.skt.recv()
             message = self._unpack_data(message)

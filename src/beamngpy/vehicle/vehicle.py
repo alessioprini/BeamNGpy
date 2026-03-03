@@ -217,12 +217,16 @@ class Vehicle:
             raise BNGError("Not connected to the vehicle!")
         return self.connection.send(data)
 
-    def connect(self, bng: BeamNGpy) -> None:
+    def connect(self, bng: BeamNGpy, tries: int = 5) -> None:
         """
         Opens socket communication with the corresponding vehicle.
 
         Args:
             bng: An instance of the simulator.
+            tries: The number of connection attempts.
+
+        Raises:
+            BNGError: If the connection could not be established.
         """
         if not bng.connection:
             raise BNGError("The simulator is not connected to BeamNGpy!")
@@ -245,7 +249,8 @@ class Vehicle:
                 self.logger.info(f"Vehicle {vid} connected to simulation.")
 
         # Now attempt to connect to the given vehicle.
-        self.connection.connect_to_vehicle(self)
+        if not self.connection.connect_to_vehicle(self, tries=tries):
+            raise BNGError(f"Error connecting to vehicle {self.vid}.")
 
         # Connect the vehicle sensors.
         for _, sensor in self.sensors.items():
@@ -322,8 +327,33 @@ class Vehicle:
             parkingbrake: Intensity of the parkingbrake, from 0.0 to 1.0.
             clutch: Clutch level, from 0.0 to 1.0.
             gear: Gear to shift to, -1 eq backwards, 0 eq neutral, 1 to X eq nth gear
+            is_adas: Whether the input source is an ADAS system.
         """
         return self._root.control(steering, throttle, brake, parkingbrake, clutch, gear, is_adas)
+
+    def cycle_esc_mode(self) -> None:
+        """
+        Cycles the ESC mode if the vehicle has ESC.
+        """
+        return self._root.cycle_esc_mode()
+
+    def set_esc_mode(self, mode: str) -> None:
+        """
+        Sets the ESC mode if the vehicle has ESC. This function won't do
+        anything if the vehicle uses a "Regular ESC" mode.
+
+        Args:
+            mode: The key of the ESC mode to set. The key may vary from the mode's name in the UI.
+        """
+        return self._root.set_esc_mode(mode)
+
+    def get_esc_mode(self) -> str:
+        """
+        Gets the current ESC mode's key if the vehicle has ESC. The key may
+        vary from the mode's name in the UI. This function will return "none"
+        if the vehicle uses a "Regular ESC" mode.
+        """
+        return self._root.get_esc_mode()
 
     def set_color(self, rgba: Color = (1.0, 1.0, 1.0, 1.0)) -> None:
         """
@@ -465,7 +495,7 @@ class Vehicle:
 
     def get_center_of_gravity(self, without_wheels=False) -> Float3:
         """
-        Returns the vehicle's center of gravity.
+        Returns the vehicle's current center of gravity in world coordinates.
 
         Args:
             without_wheels: If True, the center of gravity is calculated without the wheels.
@@ -586,3 +616,58 @@ class Vehicle:
             wheel_id: The given wheel ID.
         """
         return self._root.deflate_tire(wheel_id)
+
+    def get_mass_properties(self, without_wheels: bool = False) -> StrDict:
+        """
+        Returns a vehicle's current mass properties including:
+
+        * ``mass``: total vehicle mass in kg (float)
+        * ``center_of_gravity``: center of gravity (i.e. center of mass) in world coordinates as an (x, y, z) tuple in m
+        * ``inertia``: inertia tensor with respect to the world's coordinate axes about the center of gravity as dict
+          (x: float, y: float, z: float, xy: float, xz: float, yz: float) in kg*m^2
+
+        Args:
+            without_wheels: If True, the all properties are calculated without the wheels.
+                            Defaults to False.
+
+        Returns:
+            The vehicle's mass properties as a dictionary.
+        """
+        return self._root.get_mass_properties(without_wheels=without_wheels)
+
+    def get_ref_nodes(self) -> StrDict:
+        """
+        Returns the vehicle's reference nodes as a dictionary. The dictionary contains:
+
+        * ``ref``: the node name of the reference node (str)
+        * ``back``: the node name of the back reference node (str)
+        * ``left``: the node name of the left reference node (str)
+        * ``up``: the node name of the up reference node (str)
+        * ``leftCorner``: the node name of the front left corner node (str)
+        * ``rightCorner``: the node name of the front right corner node (str)
+
+        Returns:
+            The vehicle's reference nodes as a dictionary.
+        """
+        return self._root.get_ref_nodes()
+
+    def get_node_info(self, nodes: List[str | int] | None = None) -> List[StrDict]:
+        """
+        Returns current mass and position of the given nodes.
+
+        The returned list contains information for each requested node. The node information is a dictionary containing:
+
+        * ``name``: the name of the node (str) or None if the node has no name
+        * ``cid``: the numeric ID of the node (int)
+        * ``mass``: the current mass of the node in kg (float)
+        * ``pos``: the current position of the node in world coordinates as an (x, y, z) tuple in m
+
+        Args:
+            nodes: A list of node names to query information for. If None (default), all nodes are provided, otherwise
+                   the returned list is in the same order as the given nodes. The list can contain strings (node names)
+                   or integers (node CIDs).
+
+        Returns:
+            A list with node information for each requested node.
+        """
+        return self._root.get_node_info(nodes=nodes)

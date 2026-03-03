@@ -4,6 +4,7 @@ import socket
 import threading
 import time
 from struct import pack, unpack
+import subprocess
 
 from beamngpy.logging import BNGDisconnectedError
 
@@ -54,6 +55,7 @@ class PrefixedLengthSocket:
         self.RECV_LOCK = threading.Lock()
         self.recv_buffer = []
         self.skt = self._initialize_socket()
+        self._process: subprocess.Popen | None = None
         try:
             self.skt.connect((host, port))
         except: # cleanup resources
@@ -90,13 +92,17 @@ class PrefixedLengthSocket:
         self.skt = self._initialize_socket()
         sleep_time = 0
         tries = self.reconnect_tries
+        connected = False
         while tries > 0:
+            if self._process and self._process.poll() is not None:
+                raise BNGDisconnectedError("BeamNG.tech is not running any more.")
             try:
                 self.skt.connect((self.host, self.port))
+                connected = True
                 break
             except (ConnectionRefusedError, ConnectionAbortedError):
                 time.sleep(sleep_time)
                 sleep_time = 0.5
                 tries -= 1
-                if tries == 0:
-                    raise
+        if not connected:
+            raise BNGDisconnectedError("Connecting to the simulator failed.")
