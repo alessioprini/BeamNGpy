@@ -237,7 +237,11 @@ class Vehicle:
             if self.connection.port is None:
                 resp = bng.vehicles.start_connection(self, self.extensions)
                 vid = resp["vid"]
-                assert vid == self.vid
+                if vid != self.vid:
+                    self.logger.warning(
+                        f"Vehicle vid mismatch: expected '{self.vid}', got '{vid}'. Updating vid."
+                    )
+                    self.vid = vid
                 self.connection.port = int(resp["result"])
                 self.logger.debug(
                     f"Created new vehicle connection on port {self.connection.port}"

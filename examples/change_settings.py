@@ -6,10 +6,38 @@ This example script shows how to use the ``settings.change`` function of the
 import time
 
 from beamngpy import BeamNGpy
+from beamngpy import Scenario, Vehicle
+import subprocess
+import os
 
+# ['C:\\Program Files (x86)\\Steam\\steamapps\\common\\BeamNG.drive\\Bin64\\BeamNG.drive.x64.exe', '-nosteam', '-console', '-tcom-listen-ip', '127.0.0.1', '-lua', "extensions.load('tech/techCore');tech_techCore.openServer(25252)", '-userpath', 'C:\\Users\\AlessioPrini\\AppData\\Local\\BeamNG.drive']
 
 def main():
-    beamng = BeamNGpy("localhost", 25252, quit_on_close=False)
+    beamng_dir = "C:\\Users\\AlessioPrini\\Documents\\AMBUSIM\\AmbuSim.BeamNG.drive"
+    beamng_path = os.path.join(beamng_dir, "Bin64", "BeamNG.drive.x64")
+    call = [beamng_path, "-nosteam", "-tcom-listen-ip", "127.0.0.1", "-lua", "extensions.load('tech/techCore');tech_techCore.openServer(25252)", "-userpath", "C:\\Users\\AlessioPrini\\AppData\\Local\\BeamNG.drive"]
+
+    process = subprocess.Popen(call, stdin=subprocess.PIPE)
+
+    time.sleep(5)  # Wait for BeamNG to start
+
+    beamng = BeamNGpy("localhost", 25252, home="C:\\Users\\AlessioPrini\\Documents\\AMBUSIM\\AmbuSim.BeamNG.drive")
+    beamng.open()
+
+    scenario = Scenario("italy", "camera_streaming")
+
+    ego = Vehicle("ego", model="etk800", color="White")
+    scenario.add_vehicle(
+        ego, pos=(237.90, -894.42, 246.10), rot_quat=(0.0173, -0.0019, -0.6354, 0.7720)
+    )
+
+    scenario.make(beamng)
+
+    beamng.settings.set_deterministic(60)
+
+    beamng.control.pause()
+    beamng.scenario.load(scenario)
+    beamng.scenario.start()
 
     with beamng as bng:
         print("Setting BeamNG to fullscreen...")
@@ -33,6 +61,11 @@ def main():
 
         input("Press Enter when done...")
 
+    # beamng.scenario.stop()
+    beamng.close()
+
+    process.terminate()
+    process.wait()
 
 if __name__ == "__main__":
     main()

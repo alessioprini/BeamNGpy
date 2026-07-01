@@ -3,7 +3,9 @@ from .camera import CameraApi
 from .control import ControlApi
 from .debug import DebugApi
 from .environment import EnvironmentApi
+from .freeroam import FreeroamApi
 from .platoon import PlatoonApi
+from .replay import ReplayApi
 from .scenario import ScenarioApi
 from .settings import SettingsApi
 from .system import SystemApi

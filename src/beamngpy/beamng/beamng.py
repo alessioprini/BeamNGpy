@@ -5,10 +5,13 @@ import platform
 import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, List
+import datetime
+from appdirs import user_log_dir
 
 from beamngpy.api.beamng import (CameraApi, ControlApi, DebugApi,
-                                 EnvironmentApi, PlatoonApi, ScenarioApi,
-                                 SettingsApi, SystemApi, TrafficApi, UiApi,
+                                 EnvironmentApi, FreeroamApi, PlatoonApi,
+                                 ReplayApi, ScenarioApi, SettingsApi,
+                                 SystemApi, TrafficApi, UiApi,
                                  VehiclesApi)
 from beamngpy.beamng import filesystem
 from beamngpy.connection import Connection
@@ -86,6 +89,9 @@ class BeamNGpy:
         env: EnvironmentApi
             The API module to control the simulation's environment.
             See :class:`.EnvironmentApi` for details.
+        replay: ReplayApi
+            The API module to control replay recording and playback.
+            See :class:`.ReplayApi` for details.
         scenario: ScenarioApi
             The API module to control the scenarios.
             See :class:`.ScenarioApi` for details.
@@ -142,6 +148,7 @@ class BeamNGpy:
         self._scenario: Scenario | None = None
         self._host_os: str | None = None
         self._tech_enabled: bool | None = None
+        self._beamng_log_file = None
 
         self._setup_api()
 
@@ -211,6 +218,8 @@ class BeamNGpy:
             if debug == True:
                 arg_list.append("-tcom-debug")
             arg_list.extend(("-tcom-listen-ip", listen_ip))
+            # arg_list.append("-headless")  # always start in headless mode
+
             self._start_beamng(extensions, *arg_list, **opts)
             self.connection._process = self.process
             # Don't log connection errors while BeamNG is starting up.
@@ -318,6 +327,10 @@ class BeamNGpy:
         self.set_weather_preset = self.env.set_weather_preset
         self.set_gravity = self.env.set_gravity
 
+        self.replay = ReplayApi(self)
+
+        self.freeroam = FreeroamApi(self)
+
         self.scenario = ScenarioApi(self)
         self.get_levels = self.scenario.get_levels
         self.get_scenarios = self.scenario.get_scenarios
@@ -383,6 +396,16 @@ class BeamNGpy:
         """
         self.logger.info("Terminating BeamNG.tech process.")
         kill_process_tree(self.process)
+
+        # Chiudi il file di log BeamNG se è aperto
+        if self._beamng_log_file and hasattr(self._beamng_log_file, 'close'):
+            try:
+                self._beamng_log_file.close()
+                self.logger.info("BeamNG process log file closed.")
+            except Exception as e:
+                self.logger.warning(f"Error closing BeamNG process log file: {e}")
+            self._beamng_log_file = None
+
         self.process = None
 
     def _send(self, data: StrDict) -> Response:
@@ -418,8 +441,6 @@ class BeamNGpy:
         lua = "extensions.load('{}');" * len(extensions)
         lua = lua.format(*extensions)
         call = [binary, "-nosteam", "-tcom", "-tport", str(self.port)]
-        if platform.system() != "Linux":  # console is not supported for Linux hosts yet
-            call.append("-console")
 
         for arg in args:
             call.append(arg)
@@ -482,7 +503,37 @@ class BeamNGpy:
         call = self._prepare_call(str(binary), extensions, *args, **opts)
         self.last_command_line = " ".join(call)
 
-        self.process = subprocess.Popen(call, stdout=subprocess.DEVNULL, stdin=subprocess.PIPE)
+        # Crea file di log per BeamNG.drive output
+        log_dir = Path(user_log_dir(appname="AmbusimApp_BeamNG_Process", appauthor="Ambusim", version="1.0"))
+        log_dir.mkdir(parents=True, exist_ok=True)
+        beamng_process_log = log_dir / f"beamng_process_{datetime.datetime.now():%Y-%m-%d_%H-%M-%S}.log"
+        
+        try:
+            log_file = open(beamng_process_log, 'w', encoding='utf-8')
+            self.logger.info(f"BeamNG.drive process output will be written to: {beamng_process_log}")
+        except Exception as e:
+            self.logger.warning(f"Could not create BeamNG process log file: {e}, using DEVNULL")
+            log_file = subprocess.DEVNULL
+
+        if platform.system() == "Linux":
+            # Linux: redirect to DEVNULL or log file
+            self.process = subprocess.Popen(
+                call, stdout=log_file if log_file != subprocess.DEVNULL else subprocess.DEVNULL, 
+                stderr=log_file if log_file != subprocess.DEVNULL else subprocess.DEVNULL,
+                stdin=subprocess.PIPE
+            )
+        else:
+            # Windows: redirect to log file instead of console
+            self.process = subprocess.Popen(
+                call, 
+                stdout=log_file, 
+                stderr=log_file,
+                stdin=subprocess.PIPE
+            )
+        
+        # Store log file reference for cleanup
+        self._beamng_log_file = log_file if log_file != subprocess.DEVNULL else None
+
         self.logger.info("Started BeamNG.")
 
     def __enter__(self):
@@ -491,3 +542,15 @@ class BeamNGpy:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+
+
+    def beamng_alive(self) -> bool:
+        """
+        Checks if the BeamNG process is still alive.
+
+        Returns:
+            True if the BeamNG process is still running, False otherwise.
+        """
+        if self.process is None:
+            return False
+        return self.process.poll() is None
